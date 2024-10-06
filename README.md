@@ -47,6 +47,24 @@ runie@dev> sudo mouserot apply /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pro_000
 
 The above example scales the movement by `0.5` and adds a `1.5` degree rotation, which is my configuration with a Viper V2 Pro @ 1600dpi.
 
+## How?
+
+In a normal setup, input events are handled roughly like:
+
+```
+kernel -> pointer device -> libinput -> X server -> X client
+```
+
+However, we can "grab" exclusive access to a pointer device, such that libinput can no longer received events from it.
+If we then create a [virtual pointer device](https://www.kernel.org/doc/html/v4.12/input/uinput.html)
+we can forward events to it, after applying scaling and rotation as needed.
+
+The flow will then look more like:
+
+```
+kernel -> pointer device -> mouserot -> mouserot virtual pointer -> libinput -> X server -> X client
+```
+
 ## Building
 
 todo
