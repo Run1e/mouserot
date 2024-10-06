@@ -1,0 +1,35 @@
+---
+# We'll use defaults from the LLVM style, but with 4 columns indentation.
+BasedOnStyle: LLVM
+IndentWidth: 4
+---
+Language: Cpp
+# Force pointers to the type for C++.
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+AlignAfterOpenBracket: AlwaysBreak
+BinPackParameters: false
+BinPackArguments: false
+AlignOperands: true
+UseTab: Never
+IndentWidth: 4
+ColumnLimit: 120
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IndentCaseLabels: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: All
+SortIncludes: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+BreakBeforeBraces: WebKit
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakAfterDefinitionReturnType: false
+ContinuationIndentWidth: 4
+PenaltyBreakAssignment: 100000
+PenaltyBreakBeforeFirstCallParameter: 0
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
