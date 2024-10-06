@@ -45,10 +45,16 @@ After getting the path to a pointer device, you can apply scaling and rotation:
 runie@dev> sudo mouserot apply /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pro_000000000000-event-mouse 0.5 1.5
 ```
 
-The above example scales the movement by `0.5` and adds a `1.5` degree rotation.
+The above example scales the movement by `0.5` and adds a `1.5` degree rotation, which is my configuration with a Viper V2 Pro @ 1600dpi.
 
-### TODO
+## Building
 
-- Compilation steps (though should be easy)
+todo
+
+
+## TODO
+
+- Compilation instructions
+- Installation
 - systemd service configuration/setup
 - Test delay/profiling
