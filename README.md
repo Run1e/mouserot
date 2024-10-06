@@ -42,7 +42,7 @@ Razer Razer Viper V2 Pro Mouse   -> /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pr
 After getting the path to a pointer device, you can apply scaling and rotation:
 
 ```bash
-runie@dev> sudo mouserot apply /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pro_000000000000-event-mouse 0.5 1.5
+runie@dev> sudo mouserot apply /dev/input/event7 0.5 1.5
 ```
 
 The above example scales the movement by `0.5` and adds a `1.5` degree rotation, which is my configuration with a Viper V2 Pro @ 1600dpi.
@@ -62,13 +62,12 @@ we can forward events to it, after applying scaling and rotation as needed.
 The flow will then look more like:
 
 ```
-kernel -> pointer device -> mouserot -> mouserot virtual pointer -> libinput -> X server -> X client
+kernel -> pointer device -> mouserot -> virtual pointer device -> libinput -> X server -> X client
 ```
 
 ## Building
 
 todo
-
 
 ## TODO
 
