@@ -55,9 +55,9 @@ In a normal setup, input events are handled roughly like:
 kernel -> pointer device -> libinput -> X server -> X client
 ```
 
-However, we can "grab" exclusive access to a pointer device, such that libinput can no longer received events from it.
-If we then create a [virtual pointer device](https://www.kernel.org/doc/html/v4.12/input/uinput.html)
-we can forward events to it, after applying scaling and rotation as needed.
+However, we can "grab" exclusive access to a pointer device, such that libinput can no longer receive events from it.
+Then we can create a [virtual pointer device](https://www.kernel.org/doc/html/v4.12/input/uinput.html)
+which we can forward events to, after they have been scaled and rotated as needed.
 
 The flow will then look more like:
 
@@ -65,13 +65,35 @@ The flow will then look more like:
 kernel -> pointer device -> mouserot -> virtual pointer device -> libinput -> X server -> X client
 ```
 
-## Building
+## Installation
 
-todo
+### Dependencies
+
+```bash
+sudo apt install libevdev-dev
+```
+
+### Building and installing
+
+```bash
+git clone --recursive https://github.com/Run1e/mouserot.git
+./build.sh Release
+```
+
+### Building without build script
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# and if you want to install the binary...
+cd build
+sudo make install
+```
+
+
 
 ## TODO
 
-- Compilation instructions
-- Installation
 - systemd service configuration/setup
-- Test delay/profiling
+- Input lag/profiling

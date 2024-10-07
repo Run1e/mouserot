@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 void list(bool by_id)
 {
     std::string device_name;
-    int name_width = 0;
+    long unsigned int name_width = 0;
     std::map<std::string, fs::path> map{};
 
     std::string device_path = by_id ? "/dev/input/by-id" : "/dev/input";
@@ -47,7 +47,7 @@ void list(bool by_id)
                 if (device_name.length() > name_width)
                     name_width = device_name.length();
 
-                map[libevdev_get_name(dev)] = entry.path();
+                map[device_name] = entry.path();
             }
 
             libevdev_free(dev);
@@ -58,7 +58,7 @@ void list(bool by_id)
 
     if (map.size()) {
         for (const auto& [name, path] : map) {
-            std::cout << std::left << std::setw(name_width) << std::setfill(' ') << name;
+            std::cout << std::left << std::setw(static_cast<int>(name_width)) << std::setfill(' ') << name;
             std::cout << "   -> " << path.c_str() << std::endl;
         }
     } else {
@@ -111,8 +111,12 @@ enum class mode { list, apply, help };
 
 int main(int argc, char* argv[])
 {
+#ifdef DEBUG
+    spdlog::set_level(spdlog::level::debug);
+#endif
+
     std::string device;
-    bool by_id;
+    bool by_id = false;
     float rotation = 0.0;
     float scaling = 1.0;
     mode selected = mode::help;

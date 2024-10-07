@@ -3,22 +3,41 @@ cmake_minimum_required(VERSION 3.16)
 project("mouserot" CXX)
 
 set(CMAKE_CXX_STANDARD 20)
-
-# general folders
-set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-set(EXTERN_DIR ${CMAKE_SOURCE_DIR}/extern)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # makes a shared object from source files
 add_executable(mouserot
-    ${SRC_DIR}/cli.cpp
-    ${SRC_DIR}/mouserot.cpp
-    ${SRC_DIR}/utils.h
+    src/cli.cpp
+    src/mouserot.cpp
+    src/utils.h
 )
 
 # submodule builds
 target_include_directories(mouserot PRIVATE
-    ${EXTERN_DIR}/clipp/include
-    ${EXTERN_DIR}/spdlog/include
+    extern/clipp/include
+    extern/spdlog/include
 )
 
 target_link_libraries(mouserot PRIVATE evdev)
+
+target_compile_options(mouserot PRIVATE
+    -Wall
+    -Wextra
+    -Wconversion
+    # -Wsign-conversion
+)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(-g3 -Og)
+    add_compile_definitions(
+        DEBUG
+        SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG
+    )
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_options(-O3)
+    add_compile_definitions(
+        SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO
+    )
+endif()
+
+install(TARGETS mouserot RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

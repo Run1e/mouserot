@@ -11,6 +11,7 @@
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <math.h>
+#include <poll.h>
 #include <string>
 #include <unistd.h>
 
@@ -44,7 +45,8 @@ MouseRot::~MouseRot()
 
 void MouseRot::open_mouse()
 {
-    this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_NONBLOCK);
+    this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    // this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_CLOEXEC);
     if (this->pdev_fd == -1)
         throw std::system_error(errno, std::generic_category(), "Failed opening device");
 
@@ -73,7 +75,10 @@ void MouseRot::grab_mouse()
 
     int res = libevdev_grab(this->dev, LIBEVDEV_GRAB);
     if (res < 0)
-        throw std::system_error(res, std::generic_category(), "Failed to grab device");
+        throw std::system_error(
+            res,
+            std::generic_category(),
+            "Failed to grab device. Maybe mouserot is already running?");
 };
 
 void MouseRot::create_virtual_mouse()
@@ -81,7 +86,7 @@ void MouseRot::create_virtual_mouse()
     if (this->pdev_fd == -1)
         throw std::runtime_error("Can't create virtual mouse before opening physical mouse");
 
-    int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
+    int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0)
         throw std::system_error(errno, std::generic_category(), "Failed to open /dev/uinput");
 
@@ -111,10 +116,12 @@ void MouseRot::create_virtual_mouse()
     spdlog::info("Probing physical mouse capabilities");
 
     for (int ev_type = 0; ev_type < EV_MAX; ++ev_type) {
-        if (!test_bit(ev_bits, ev_type))
+        if (!test_bit(ev_bits, ev_type) || ev_type == EV_SYN)
             continue;
 
-        spdlog::info(libevdev_event_type_get_name(ev_type));
+        std::string info = libevdev_event_type_get_name(ev_type);
+        info += " (";
+
         if (ev_type_map.find(ev_type) == ev_type_map.end()) {
             std::string ev_type_name = libevdev_event_type_get_name(ev_type);
             spdlog::warn("ev_type {} does not map to a UI_SET_*BIT value", ev_type_name);
@@ -128,15 +135,28 @@ void MouseRot::create_virtual_mouse()
         memset(code_bits, 0, sizeof(code_bits));
         ioctl(this->pdev_fd, EVIOCGBIT(ev_type, sizeof(code_bits)), code_bits);
 
+        bool first = true;
+
         for (int ev_code = 0; ev_code < KEY_MAX; ++ev_code) {
             if (!test_bit(code_bits, ev_code))
                 continue;
 
             int req = ev_type_map[ev_type];
-
             ioctl(this->vdev_fd, req, ev_code);
-            spdlog::info("- {}", libevdev_event_code_get_name(ev_type, ev_code));
+
+            std::string event_code_name = libevdev_event_code_get_name(ev_type, ev_code);
+
+            if (first) {
+                first = false;
+            } else {
+                info += ", ";
+            }
+
+            info += event_code_name;
         }
+
+        info += ")";
+        spdlog::info(info);
     }
 
     usetup.id.bustype = BUS_USB;
@@ -150,7 +170,8 @@ void MouseRot::create_virtual_mouse()
 
 void MouseRot::set_rotation_deg(float degrees)
 {
-    this->set_rotation_rad(degrees * M_PI / 180.0);
+    float mult = static_cast<float>(M_PI / 180.0);
+    this->set_rotation_rad(degrees * mult);
 };
 
 void MouseRot::set_rotation_rad(float radians)
@@ -159,6 +180,7 @@ void MouseRot::set_rotation_rad(float radians)
     this->sin_val = std::sin(radians);
     this->cos_val = std::cos(radians);
 };
+
 void MouseRot::set_scale(float scale)
 {
     this->scale = scale;
@@ -166,23 +188,76 @@ void MouseRot::set_scale(float scale)
 
 void MouseRot::loop()
 {
-    int rc;
+    int rc = 0;
+    int res;
     struct input_event ev;
+    struct pollfd pfd {};
+
+    pfd.fd = this->pdev_fd;
+    pfd.events = POLLIN;
 
     do {
-        rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-        if (rc == 0) {
-            // spdlog::info(
-            //     "Event: {} {} {}",
-            //     libevdev_event_type_get_name(ev.type),
-            //     libevdev_event_code_get_name(ev.type, ev.code),
-            //     ev.value);
+        res = poll(&pfd, 1, -1);
+        if (res > 0) {
+            rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
 
-            this->handle(ev);
+            if (rc == 0) {
+                this->handle(ev);
+            } else {
+                SPDLOG_DEBUG("libevdev_next_event failed with rc: {}", rc);
+            }
+        } else {
+            SPDLOG_DEBUG("Poll returned with res: {} and revents: {}", res, pfd.revents);
         }
     } while (rc == 1 || rc == 0 || rc == -EAGAIN);
 
     throw std::system_error(errno, std::generic_category(), "Failed reading from device");
+};
+
+void MouseRot::handle(const struct input_event& ev)
+{
+    float dx, dy;
+    float ix, iy;
+    float value;
+
+    int move_x;
+    int move_y;
+
+    // https://www.desmos.com/calculator/rjfhpd184z
+    // apply rotation
+    if (ev.type == EV_REL) {
+        if (ev.code == REL_X) {
+            value = static_cast<float>(ev.value);
+            dx = value * this->cos_val;
+            dy = value * this->sin_val;
+
+        } else if (ev.code == REL_Y) {
+            value = static_cast<float>(ev.value);
+            dx = -value * this->sin_val;
+            dy = value * this->cos_val;
+
+        } else {
+            this->emit(ev.type, ev.code, ev.value);
+            return;
+        }
+
+        // scale and find remaining fractional part
+        this->x_rem = std::modf(dx * this->scale + this->x_rem, &ix);
+        this->y_rem = std::modf(dy * this->scale + this->y_rem, &iy);
+
+        // cast integral parts to int
+        move_x = static_cast<int>(ix);
+        move_y = static_cast<int>(iy);
+
+        // and move if applicable
+        if (move_x != 0)
+            this->emit(EV_REL, REL_X, move_x);
+
+        if (move_y != 0)
+            this->emit(EV_REL, REL_Y, move_y);
+    } else {
+        this->emit(ev.type, ev.code, ev.value);
+    }
 };
 
 void MouseRot::emit(unsigned short ev_type, unsigned short ev_code, int value)
@@ -199,43 +274,4 @@ void MouseRot::emit(unsigned short ev_type, unsigned short ev_code, int value)
     event.value = value;
 
     write(this->vdev_fd, &event, sizeof(event));
-};
-
-void MouseRot::handle(const struct input_event& ev)
-{
-    float dx, dy;
-    float ix, iy;
-
-    int move_x;
-    int move_y;
-
-    if (ev.type == EV_REL) {
-        // https://www.desmos.com/calculator/rjfhpd184z
-        if (ev.code == REL_X) {
-            dx = ev.value * this->cos_val;
-            dy = ev.value * this->sin_val;
-        }
-
-        else if (ev.code == REL_Y) {
-            dx = -ev.value * this->sin_val;
-            dy = ev.value * this->cos_val;
-        } else {
-            this->emit(ev.type, ev.code, ev.value);
-            return;
-        }
-
-        this->x_rem = std::modf(dx * this->scale + this->x_rem, &ix);
-        this->y_rem = std::modf(dy * this->scale + this->y_rem, &iy);
-
-        move_x = static_cast<int>(ix);
-        move_y = static_cast<int>(iy);
-
-        if (move_x != 0)
-            this->emit(EV_REL, REL_X, move_x);
-
-        if (move_y != 0)
-            this->emit(EV_REL, REL_Y, move_y);
-    } else {
-        this->emit(ev.type, ev.code, ev.value);
-    }
 };
