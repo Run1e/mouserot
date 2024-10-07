@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <iomanip>
-#include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <math.h>
 #include <poll.h>
@@ -196,22 +195,39 @@ void MouseRot::loop()
     pfd.fd = this->pdev_fd;
     pfd.events = POLLIN;
 
-    do {
+    while (true) {
         res = poll(&pfd, 1, -1);
-        if (res > 0) {
-            rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
 
-            if (rc == 0) {
-                this->handle(ev);
-            } else {
-                SPDLOG_DEBUG("libevdev_next_event failed with rc: {}", rc);
-            }
-        } else {
+        if (res <= 0) {
             SPDLOG_DEBUG("Poll returned with res: {} and revents: {}", res, pfd.revents);
+            continue;
         }
-    } while (rc == 1 || rc == 0 || rc == -EAGAIN);
 
-    throw std::system_error(errno, std::generic_category(), "Failed reading from device");
+        while (true) {
+            // returns -EAGAIN if nothing is there
+            rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+            SPDLOG_TRACE("rc: {}", rc);
+
+            if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+                SPDLOG_TRACE(
+                    "Event: {} {} {} rc: {}",
+                    libevdev_event_type_get_name(ev.type),
+                    libevdev_event_code_get_name(ev.type, ev.code),
+                    ev.value,
+                    rc);
+
+                this->handle(ev);
+
+            } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+                SPDLOG_DEBUG("LIBEVDEV_READ_STATUS_SYNC");
+                continue;
+            } else if (rc == -EAGAIN) {
+                break;
+            } else {
+                throw std::system_error(errno, std::generic_category(), "Failed reading from device");
+            }
+        }
+    };
 };
 
 void MouseRot::handle(const struct input_event& ev)
