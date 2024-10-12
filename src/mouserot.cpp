@@ -10,7 +10,6 @@
 #include <iomanip>
 #include <linux/uinput.h>
 #include <math.h>
-#include <poll.h>
 #include <string>
 #include <unistd.h>
 
@@ -44,8 +43,8 @@ MouseRot::~MouseRot()
 
 void MouseRot::open_mouse()
 {
-    this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    // this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_CLOEXEC);
+    // this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    this->pdev_fd = open(this->device_path.c_str(), O_RDONLY | O_CLOEXEC);
     if (this->pdev_fd == -1)
         throw std::system_error(errno, std::generic_category(), "Failed opening device");
 
@@ -188,44 +187,30 @@ void MouseRot::set_scale(float scale)
 void MouseRot::loop()
 {
     int rc = 0;
-    int res;
     struct input_event ev;
-    struct pollfd pfd {};
-
-    pfd.fd = this->pdev_fd;
-    pfd.events = POLLIN;
 
     while (true) {
-        res = poll(&pfd, 1, -1);
+        // returns -EAGAIN if nothing is there
+        rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+        SPDLOG_TRACE("rc: {}", rc);
 
-        if (res <= 0) {
-            SPDLOG_DEBUG("Poll returned with res: {} and revents: {}", res, pfd.revents);
+        if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+            SPDLOG_TRACE(
+                "Event: {} {} {} rc: {}",
+                libevdev_event_type_get_name(ev.type),
+                libevdev_event_code_get_name(ev.type, ev.code),
+                ev.value,
+                rc);
+
+            this->handle(ev);
+
+        } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+            SPDLOG_DEBUG("LIBEVDEV_READ_STATUS_SYNC");
             continue;
-        }
-
-        while (true) {
-            // returns -EAGAIN if nothing is there
-            rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-            SPDLOG_TRACE("rc: {}", rc);
-
-            if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
-                SPDLOG_TRACE(
-                    "Event: {} {} {} rc: {}",
-                    libevdev_event_type_get_name(ev.type),
-                    libevdev_event_code_get_name(ev.type, ev.code),
-                    ev.value,
-                    rc);
-
-                this->handle(ev);
-
-            } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
-                SPDLOG_DEBUG("LIBEVDEV_READ_STATUS_SYNC");
-                continue;
-            } else if (rc == -EAGAIN) {
-                break;
-            } else {
-                throw std::system_error(errno, std::generic_category(), "Failed reading from device");
-            }
+        } else if (rc == -EAGAIN) {
+            continue;
+        } else {
+            throw std::system_error(errno, std::generic_category(), "Failed reading from device");
         }
     };
 };

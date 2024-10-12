@@ -2,6 +2,7 @@
 #include "mouserot.h"
 #include "spdlog/spdlog.h"
 #include "utils.h"
+#include "yaml-cpp/yaml.h"
 
 #include <fcntl.h>
 #include <filesystem>
@@ -86,7 +87,7 @@ void apply(std::string device, float scaling, float rotation)
         } catch (const std::system_error& exc) {
             spdlog::error(exc.what());
 
-            if (exc.code().value() == 19) {
+            if (exc.code().value() == ENODEV) {
                 spdlog::info("Device not found, attempting to reopen...");
 
                 while (true) {
@@ -107,7 +108,24 @@ void apply(std::string device, float scaling, float rotation)
     }
 }
 
-enum class mode { list, apply, help };
+void daemon(const std::string& config)
+{
+    spdlog::info("Starting in daemon mode (config: {})", config);
+
+    fs::path path(config);
+    if (!fs::exists(path))
+        throw std::runtime_error("Config file doesn't exist");
+
+    YAML::Node node = YAML::LoadFile(config);
+
+    const std::string device = node["device"].as<std::string>();
+    const float scaling = node["scaling"].as<float>();
+    const float rotation = node["rotation"].as<float>();
+
+    apply(device, scaling, rotation);
+}
+
+enum class mode { list, apply, daemon, help };
 
 int main(int argc, char* argv[])
 {
@@ -116,6 +134,7 @@ int main(int argc, char* argv[])
 #endif
 
     std::string device;
+    std::string config;
     bool by_id = false;
     float rotation = 0.0;
     float scaling = 1.0;
@@ -129,7 +148,9 @@ int main(int argc, char* argv[])
 
     auto list_cmd = (command("list").set(selected, mode::list), option("--by-id").set(by_id) % "list by id");
 
-    auto cli = (apply_cmd | list_cmd | command("help").set(selected, mode::help));
+    auto daemon_cmd = (command("daemon").set(selected, mode::daemon), value("config", config));
+
+    auto cli = (apply_cmd | list_cmd | daemon_cmd | command("help").set(selected, mode::help));
 
     std::function<void(void)> show_help = [&cli, &argv] { std::cout << make_man_page(cli, argv[0]) << std::endl; };
 
@@ -141,6 +162,9 @@ int main(int argc, char* argv[])
                     break;
                 case mode::list:
                     list(by_id);
+                    break;
+                case mode::daemon:
+                    daemon(config);
                     break;
                 case mode::help:
                     show_help();

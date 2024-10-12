@@ -28,8 +28,9 @@ answer=${answer,,}
 
 if [[ "$answer" == "yes" || "$answer" == "y" ]]; then
     sudo make install
-elif [[ "$answer" == "no" || "$answer" == "n" || "$answer" == "" ]]; then
-    true
+    echo
+    echo
+    echo "To install the systemd service, run 'sudo ./systemd-install.sh'"
 else
-    echo "Invalid response, run build script again if you want to install"
+    echo "The systemd_install.sh script will not work without installing mouserot to /usr/local/bin. Run this script again if you change your mind."
 fi

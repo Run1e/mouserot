@@ -1,0 +1,11 @@
+[Unit]
+Description=mouserot daemon
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/mouserot daemon /etc/mouserot/config.yaml
+Type=simple
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

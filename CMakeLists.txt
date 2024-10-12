@@ -5,6 +5,11 @@ project("mouserot" CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(YAML_CPP_BUILD_CONTRIB OFF)
+set(YAML_CPP_BUILD_TOOLS OFF)
+set(YAML_CPP_INSTALL OFF)
+add_subdirectory(extern/yaml-cpp yaml-cpp)
+
 # makes a shared object from source files
 add_executable(mouserot
     src/cli.cpp
@@ -18,7 +23,10 @@ target_include_directories(mouserot PRIVATE
     extern/spdlog/include
 )
 
-target_link_libraries(mouserot PRIVATE evdev)
+target_link_libraries(mouserot PRIVATE
+    evdev
+    yaml-cpp::yaml-cpp
+)
 
 target_compile_options(mouserot PRIVATE
     -Wall

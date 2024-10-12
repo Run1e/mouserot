@@ -9,6 +9,7 @@ runie@dev> mouserot -h
 SYNOPSIS
         mouserot apply <device> <scaling> <rotation>
         mouserot list [--by-id]
+        mouserot daemon <config>
         mouserot help
 
 OPTIONS
@@ -20,21 +21,12 @@ OPTIONS
 ```bash
 runie@dev> sudo mouserot list
 Keychron Keychron Q3 Mouse       -> /dev/input/event3
-Logitech G403                    -> /dev/input/event15
-Logitech USB Receiver            -> /dev/input/event13
+Logitech G403                    -> /dev/input/event20
+Logitech USB Receiver            -> /dev/input/event17
 Razer Razer Viper V2 Pro         -> /dev/input/event7
 Razer Razer Viper V2 Pro Mouse   -> /dev/input/event9
-```
-
-Alternatively get paths by id by adding `--by-id`:
-
-```bash
-runie@dev> sudo mouserot list --by-id
-Keychron Keychron Q3 Mouse       -> /dev/input/by-id/usb-Keychron_Keychron_Q3-if02-event-mouse
-Logitech G403                    -> /dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-mouse
-Logitech USB Receiver            -> /dev/input/by-id/usb-Logitech_USB_Receiver-event-mouse
-Razer Razer Viper V2 Pro         -> /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pro_000000000000-event-mouse
-Razer Razer Viper V2 Pro Mouse   -> /dev/input/by-id/usb-Razer_Razer_Viper_V2_Pro_000000000000-if01-event-mouse
+Razer Razer Viper V3 Pro         -> /dev/input/event12
+Razer Razer Viper V3 Pro Mouse   -> /dev/input/event14
 ```
 
 ### Apply scaling and rotation
@@ -70,30 +62,34 @@ kernel -> pointer device -> mouserot -> virtual pointer device -> libinput -> X 
 ### Dependencies
 
 ```bash
-sudo apt install libevdev-dev
+sudo apt install cmake build-essential libevdev-dev
 ```
 
 ### Building and installing
 
 ```bash
 git clone --recursive https://github.com/Run1e/mouserot.git
-./build.sh Release
+./build.sh
 ```
 
-### Building without build script
+You will be prompted if you want to copy the mouserot binary to `/usr/local/bin/mouserot`.
+
+The build is emitted to `build/Release`.
+
+### Daemon
+
+If you want to install mouserot as a systemd service:
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+sudo ./systemd-install.sh
 
-# and if you want to install the binary...
-cd build
-sudo make install
+# configure the daemon
+vim/nano /etc/mouserot/config.yaml
+
+# enable and start
+sudo systemctl enable mouserot
+sudo systemctl start mouserot
+
+# check to see if everything went well
+sudo systemctl status mouserot
 ```
-
-
-
-## TODO
-
-- systemd service configuration/setup
-- Input lag/profiling

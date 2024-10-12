@@ -1,0 +1,11 @@
+# change this value to the character device of your mouse.
+# you can find a valid list by doing 'sudo mouserot list --by-id'
+device: your_device_here
+
+# scales mouse movement.
+# not recommended to go above 1.0 here
+scaling: 1.0
+
+# mouse rotation in degrees.
+# set to 0 if you don't know why you'd want to set this
+rotation: 0

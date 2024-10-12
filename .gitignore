@@ -1,3 +1,4 @@
 .vscode
 build
 format
+testconfig.yaml

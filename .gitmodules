@@ -4,3 +4,9 @@
 [submodule "extern/spdlog"]
 	path = extern/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "extern/rapidyaml"]
+	path = extern/rapidyaml
+	url = https://github.com/biojppm/rapidyaml
+[submodule "extern/yaml-cpp"]
+	path = extern/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp
