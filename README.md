@@ -34,10 +34,10 @@ Razer Razer Viper V3 Pro Mouse   -> /dev/input/event14
 After getting the path to a pointer device, you can apply scaling and rotation:
 
 ```bash
-runie@dev> sudo mouserot apply /dev/input/event7 0.5 1.5
+runie@dev> sudo mouserot apply /dev/input/event12 0.5 1.4
 ```
 
-The above example scales the movement by `0.5` and adds a `1.5` degree rotation, which is my configuration with a Viper V2 Pro @ 1600dpi.
+The above example scales the movement by `0.5` and adds a `1.4` degree rotation, which is my configuration with a Viper V3 Pro @ 1600dpi.
 
 ## How?
 
@@ -84,7 +84,7 @@ If you want to install mouserot as a systemd service:
 sudo ./systemd-install.sh
 
 # configure the daemon
-vim/nano /etc/mouserot/config.yaml
+sudo vim/nano /etc/mouserot/config.yaml
 
 # enable and start
 sudo systemctl enable mouserot

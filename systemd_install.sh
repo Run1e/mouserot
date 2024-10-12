@@ -23,5 +23,5 @@ echo "Edit /etc/mouserot/config.yaml to configure the daemon."
 echo "The available device values can be found with 'sudo mouserot list --by-id'"
 echo
 echo "Then you can enable and start the daemon with:"
-echo "systemctl enable mouserot"
-echo "systemctl start mouserot"
+echo "sudo systemctl enable mouserot"
+echo "sudo systemctl start mouserot"
