@@ -3,6 +3,7 @@
 #include "spdlog/spdlog.h"
 #include "utils.h"
 
+#include <bitset>
 #include <cmath>
 #include <cstdlib>
 #include <errno.h>
@@ -79,6 +80,41 @@ void MouseRot::grab_mouse()
             "Failed to grab device. Maybe mouserot is already running?");
 };
 
+template <size_t N> class Bitset {
+    uint8_t* _data;
+
+public:
+    Bitset() : _data((uint8_t*)malloc(N / 8 + 1))
+    {
+        this->reset();
+    };
+
+    ~Bitset()
+    {
+        delete this->_data;
+    }
+
+    size_t size()
+    {
+        return N;
+    }
+
+    uint8_t* data()
+    {
+        return this->_data;
+    }
+
+    void reset()
+    {
+        memset(this->_data, 0, N / 8 + 1);
+    }
+
+    bool test(size_t index)
+    {
+        return this->_data[index / 8] & (1 << (index % 8));
+    }
+};
+
 void MouseRot::create_virtual_mouse()
 {
     if (this->pdev_fd == -1)
@@ -95,8 +131,8 @@ void MouseRot::create_virtual_mouse()
     // https://github.com/gvalkov/python-evdev/blob/0d496bf8a5bce2d5c60147609cb79df1386dbf23/evdev/input.c#L130
     // https://github.com/gvalkov/python-evdev/blob/0d496bf8a5bce2d5c60147609cb79df1386dbf23/evdev/uinput.c#L302
 
-    char ev_bits[EV_MAX / 8 + 1];
-    char code_bits[KEY_MAX / 8 + 1];
+    Bitset<EV_MAX> ev_bits;
+    Bitset<KEY_MAX> code_bits;
 
     std::map<int, int> ev_type_map = {
         {EV_KEY, UI_SET_KEYBIT},
@@ -109,12 +145,15 @@ void MouseRot::create_virtual_mouse()
         {EV_SND, UI_SET_SNDBIT},
     };
 
-    ioctl(this->pdev_fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits);
+    ioctl(this->pdev_fd, EVIOCGBIT(0, ev_bits.size()), ev_bits.data());
 
     spdlog::info("Probing physical mouse capabilities");
 
     for (int ev_type = 0; ev_type < EV_MAX; ++ev_type) {
-        if (!test_bit(ev_bits, ev_type) || ev_type == EV_SYN)
+        if (!ev_bits.test(ev_type))
+            continue;
+
+        if (ev_type == EV_SYN)
             continue;
 
         std::string info = libevdev_event_type_get_name(ev_type);
@@ -129,14 +168,13 @@ void MouseRot::create_virtual_mouse()
         // set that we want to enable this evbit
         ioctl(this->vdev_fd, UI_SET_EVBIT, ev_type);
 
-        // get all code bits for this ev type
-        memset(code_bits, 0, sizeof(code_bits));
-        ioctl(this->pdev_fd, EVIOCGBIT(ev_type, sizeof(code_bits)), code_bits);
+        code_bits.reset();
+        ioctl(this->pdev_fd, EVIOCGBIT(ev_type, code_bits.size()), code_bits.data());
 
         bool first = true;
 
         for (int ev_code = 0; ev_code < KEY_MAX; ++ev_code) {
-            if (!test_bit(code_bits, ev_code))
+            if (!code_bits.test(ev_code))
                 continue;
 
             int req = ev_type_map[ev_type];
