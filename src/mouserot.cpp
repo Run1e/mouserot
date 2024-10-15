@@ -1,5 +1,6 @@
 #include "mouserot.h"
 
+#include "bitset.cpp"
 #include "spdlog/spdlog.h"
 #include "utils.h"
 
@@ -78,36 +79,6 @@ void MouseRot::grab_mouse()
             res,
             std::generic_category(),
             "Failed to grab device. Maybe mouserot is already running?");
-};
-
-template <size_t N> class Bitset {
-    std::array<uint8_t, N / 8 + 1> arr;
-
-public:
-    Bitset()
-    {
-        this->reset();
-    };
-
-    void reset()
-    {
-        this->arr.fill(0);
-    }
-
-    size_t size()
-    {
-        return N;
-    }
-
-    uint8_t* data()
-    {
-        return this->arr.data();
-    }
-
-    bool test(size_t index)
-    {
-        return this->arr[index / 8] & (1 << (index % 8));
-    }
 };
 
 void MouseRot::create_virtual_mouse()
