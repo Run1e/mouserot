@@ -89,7 +89,8 @@ public:
         this->reset();
     };
 
-    void reset() {
+    void reset()
+    {
         this->arr.fill(0);
     }
 
