@@ -81,17 +81,16 @@ void MouseRot::grab_mouse()
 };
 
 template <size_t N> class Bitset {
-    uint8_t* _data;
+    std::array<uint8_t, N / 8 + 1> arr;
 
 public:
-    Bitset() : _data((uint8_t*)malloc(N / 8 + 1))
+    Bitset()
     {
         this->reset();
     };
 
-    ~Bitset()
-    {
-        delete this->_data;
+    void reset() {
+        this->arr.fill(0);
     }
 
     size_t size()
@@ -101,17 +100,12 @@ public:
 
     uint8_t* data()
     {
-        return this->_data;
-    }
-
-    void reset()
-    {
-        memset(this->_data, 0, N / 8 + 1);
+        return this->arr.data();
     }
 
     bool test(size_t index)
     {
-        return this->_data[index / 8] & (1 << (index % 8));
+        return this->arr[index / 8] & (1 << (index % 8));
     }
 };
 
