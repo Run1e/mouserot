@@ -67,8 +67,17 @@ sudo apt install cmake build-essential libevdev-dev
 
 ### Building and installing
 
+First clone the repo with the `--recursive` flag:
+
 ```bash
 git clone --recursive https://github.com/Run1e/mouserot.git
+```
+
+Alternatively clone normally and then run `git submodule update --init`.
+
+Then run the build script:
+
+```bash
 ./build.sh
 ```
 
