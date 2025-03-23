@@ -1,10 +1,8 @@
 #include "mouserot.h"
 
-#include "bitset.cpp"
 #include "spdlog/spdlog.h"
 #include "utils.h"
 
-#include <bitset>
 #include <cmath>
 #include <cstdlib>
 #include <errno.h>
@@ -17,7 +15,9 @@
 
 MouseRot::MouseRot(const std::string& device_path) : device_path(device_path)
 {
-    this->dev = nullptr;
+    this->pdev = nullptr;
+    this->vdev = nullptr;
+
     this->vdev_fd = -1;
     this->pdev_fd = -1;
 
@@ -32,13 +32,13 @@ MouseRot::MouseRot(const std::string& device_path) : device_path(device_path)
 
 MouseRot::~MouseRot()
 {
-    if (this->dev != nullptr) {
-        libevdev_free(this->dev);
+    if (this->pdev != nullptr) {
+        libevdev_free(this->pdev);
         close(this->pdev_fd);
     }
 
     if (this->vdev_fd != -1) {
-        ioctl(this->vdev_fd, UI_DEV_DESTROY);
+        libevdev_uinput_destroy(this->vdev);
         close(this->vdev_fd);
     }
 };
@@ -50,18 +50,18 @@ void MouseRot::open_mouse()
     if (this->pdev_fd == -1)
         throw std::system_error(errno, std::generic_category(), "Failed opening device");
 
-    int rc = libevdev_new_from_fd(this->pdev_fd, &dev);
+    int rc = libevdev_new_from_fd(this->pdev_fd, &this->pdev);
     if (rc < 0)
         throw std::system_error(errno, std::generic_category(), "Failed to init libevdev");
 
     spdlog::info(
         "Opened device:\n\tName: {}\n\tBus: {:x}\n\tVendor: {:x}\n\tProduct: {:x}",
-        libevdev_get_name(dev),
-        libevdev_get_id_bustype(dev),
-        libevdev_get_id_vendor(dev),
-        libevdev_get_id_product(dev));
+        libevdev_get_name(this->pdev),
+        libevdev_get_id_bustype(this->pdev),
+        libevdev_get_id_vendor(this->pdev),
+        libevdev_get_id_product(this->pdev));
 
-    if (!looks_like_mouse(dev))
+    if (!looks_like_mouse(this->pdev))
         throw std::runtime_error("Device does not look like a mouse!");
 };
 
@@ -70,10 +70,10 @@ void MouseRot::grab_mouse()
     if (this->pdev_fd == -1)
         throw std::runtime_error("No open mouse device");
 
-    if (!this->dev)
+    if (!this->pdev)
         throw std::runtime_error("Can't grab mouse device we haven't initialized");
 
-    int res = libevdev_grab(this->dev, LIBEVDEV_GRAB);
+    int res = libevdev_grab(this->pdev, LIBEVDEV_GRAB);
     if (res < 0)
         throw std::system_error(
             res,
@@ -92,84 +92,9 @@ void MouseRot::create_virtual_mouse()
 
     this->vdev_fd = fd;
 
-    struct uinput_setup usetup {};
-
-    // https://github.com/gvalkov/python-evdev/blob/0d496bf8a5bce2d5c60147609cb79df1386dbf23/evdev/input.c#L130
-    // https://github.com/gvalkov/python-evdev/blob/0d496bf8a5bce2d5c60147609cb79df1386dbf23/evdev/uinput.c#L302
-
-    Bitset<EV_MAX> ev_bits;
-    Bitset<KEY_MAX> code_bits;
-
-    std::map<int, int> ev_type_map = {
-        {EV_KEY, UI_SET_KEYBIT},
-        {EV_ABS, UI_SET_ABSBIT},
-        {EV_REL, UI_SET_RELBIT},
-        {EV_MSC, UI_SET_MSCBIT},
-        {EV_SW, UI_SET_SWBIT},
-        {EV_LED, UI_SET_LEDBIT},
-        {EV_FF, UI_SET_FFBIT},
-        {EV_SND, UI_SET_SNDBIT},
-    };
-
-    ioctl(this->pdev_fd, EVIOCGBIT(0, ev_bits.size()), ev_bits.data());
-
-    spdlog::info("Probing physical mouse capabilities");
-
-    for (int ev_type = 0; ev_type < EV_MAX; ++ev_type) {
-        if (!ev_bits.test(ev_type))
-            continue;
-
-        if (ev_type == EV_SYN)
-            continue;
-
-        const char* event_type_name = libevdev_event_type_get_name(ev_type);
-        std::string info = event_type_name ? event_type_name : "?";
-        info += " (";
-
-        if (ev_type_map.find(ev_type) == ev_type_map.end()) {
-            const char* ev_type_name = libevdev_event_type_get_name(ev_type);
-            spdlog::warn("ev_type {} does not map to a UI_SET_*BIT value", ev_type_name ? ev_type_name : "?");
-            continue;
-        }
-
-        // set that we want to enable this evbit
-        ioctl(this->vdev_fd, UI_SET_EVBIT, ev_type);
-
-        code_bits.reset();
-        ioctl(this->pdev_fd, EVIOCGBIT(ev_type, code_bits.size()), code_bits.data());
-
-        bool first = true;
-
-        for (int ev_code = 0; ev_code < KEY_MAX; ++ev_code) {
-            if (!code_bits.test(ev_code))
-                continue;
-
-            int req = ev_type_map[ev_type];
-            ioctl(this->vdev_fd, req, ev_code);
-
-            const char* event_code = libevdev_event_code_get_name(ev_type, ev_code);
-            std::string event_code_name = event_code ? event_code : "?";
-
-            if (first) {
-                first = false;
-            } else {
-                info += ", ";
-            }
-
-            info += event_code_name;
-        }
-
-        info += ")";
-        spdlog::info(info);
-    }
-
-    usetup.id.bustype = BUS_USB;
-    usetup.id.vendor = 0x1234;  // Dummy vendor
-    usetup.id.product = 0x5678; // Dummy product
-    strcpy(usetup.name, "mouserot virtual mouse");
-
-    ioctl(fd, UI_DEV_SETUP, &usetup);
-    ioctl(fd, UI_DEV_CREATE);
+    int rc = libevdev_uinput_create_from_device(this->pdev, fd, &this->vdev);
+    if (rc < 0)
+        throw std::system_error(errno, std::generic_category(), "Failed to create uinput device");
 };
 
 void MouseRot::set_rotation_deg(float degrees)
@@ -194,10 +119,11 @@ void MouseRot::loop()
 {
     int rc = 0;
     struct input_event ev;
+    struct libevdev* pdev = this->pdev;
 
     while (true) {
         // returns -EAGAIN if nothing is there
-        rc = libevdev_next_event(this->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+        rc = libevdev_next_event(pdev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
         SPDLOG_TRACE("rc: {}", rc);
 
         if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
@@ -272,7 +198,7 @@ void MouseRot::emit(unsigned short ev_type, unsigned short ev_code, int value)
     if (this->vdev_fd == -1)
         return;
 
-    struct input_event event {};
+    struct input_event event{};
 
     event.input_event_usec = 0;
     event.input_event_sec = 0;

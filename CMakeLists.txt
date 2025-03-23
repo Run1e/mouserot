@@ -17,14 +17,18 @@ add_executable(mouserot
     src/utils.h
 )
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBEVDEV REQUIRED libevdev)
+
 # submodule builds
 target_include_directories(mouserot PRIVATE
     extern/clipp/include
     extern/spdlog/include
+    ${LIBEVDEV_INCLUDE_DIRS}
 )
 
 target_link_libraries(mouserot PRIVATE
-    evdev
+    ${LIBEVDEV_LIBRARIES}
     yaml-cpp::yaml-cpp
 )
 

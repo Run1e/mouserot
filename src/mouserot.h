@@ -1,14 +1,17 @@
 #pragma once
 
-#include <libevdev-1.0/libevdev/libevdev.h>
+#include <libevdev/libevdev.h>
+#include <libevdev/libevdev-uinput.h>
 #include <string>
 
 class MouseRot {
     std::string device_path;
 
-    struct libevdev* dev;
-    int vdev_fd;
     int pdev_fd;
+    struct libevdev* pdev;
+
+    int vdev_fd;
+    struct libevdev_uinput* vdev;
 
     float rotation;
     float scale;

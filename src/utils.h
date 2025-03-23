@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libevdev-1.0/libevdev/libevdev.h>
+#include <libevdev/libevdev.h>
 
 inline bool looks_like_mouse(struct libevdev* dev)
 {

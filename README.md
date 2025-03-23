@@ -62,7 +62,7 @@ kernel -> pointer device -> mouserot -> virtual pointer device -> libinput -> X 
 ### Dependencies
 
 ```bash
-sudo apt install cmake build-essential libevdev-dev
+sudo apt install cmake build-essential libevdev-dev pkg-config
 ```
 
 ### Building and installing

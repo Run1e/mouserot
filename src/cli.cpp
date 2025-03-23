@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <iostream>
-#include <libevdev-1.0/libevdev/libevdev.h>
+#include <libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <map>
 #include <system_error>
