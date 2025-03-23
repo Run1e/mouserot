@@ -122,12 +122,13 @@ void MouseRot::create_virtual_mouse()
         if (ev_type == EV_SYN)
             continue;
 
-        std::string info = libevdev_event_type_get_name(ev_type);
+        const char* event_type_name = libevdev_event_type_get_name(ev_type);
+        std::string info = event_type_name ? event_type_name : "?";
         info += " (";
 
         if (ev_type_map.find(ev_type) == ev_type_map.end()) {
-            std::string ev_type_name = libevdev_event_type_get_name(ev_type);
-            spdlog::warn("ev_type {} does not map to a UI_SET_*BIT value", ev_type_name);
+            const char* ev_type_name = libevdev_event_type_get_name(ev_type);
+            spdlog::warn("ev_type {} does not map to a UI_SET_*BIT value", ev_type_name ? ev_type_name : "?");
             continue;
         }
 
@@ -146,7 +147,8 @@ void MouseRot::create_virtual_mouse()
             int req = ev_type_map[ev_type];
             ioctl(this->vdev_fd, req, ev_code);
 
-            std::string event_code_name = libevdev_event_code_get_name(ev_type, ev_code);
+            const char* event_code = libevdev_event_code_get_name(ev_type, ev_code);
+            std::string event_code_name = event_code ? event_code : "?";
 
             if (first) {
                 first = false;
