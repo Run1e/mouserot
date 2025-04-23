@@ -2,3 +2,4 @@
 build
 format
 testconfig.yaml
+.cache

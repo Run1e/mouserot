@@ -1,6 +1,6 @@
 # mouserot
 
-A simple Linux tool to change mouse scaling and rotation
+Simple Linux tool to change mouse scaling and rotation in userspace
 
 ## Usage
 
